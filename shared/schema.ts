@@ -15,7 +15,7 @@ export const users = pgTable("users", {
 export const burnerProfiles = pgTable("burner_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
-  codename: text("codename").notNull(),
+  codename: text("codename").notNull().unique(),
   personality: text("personality").notNull(),
   avatar: text("avatar").notNull(),
   background: text("background").notNull(),

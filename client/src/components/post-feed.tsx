@@ -9,7 +9,7 @@ interface PostFeedProps {
 }
 
 export function PostFeed({ showAIOnly }: PostFeedProps) {
-  const { data: posts, isLoading } = useQuery<Post[]>({
+  const { data: posts, isLoading } = useQuery<(Post & { burnerProfile: BurnerProfile })[]>({
     queryKey: ["/api/posts", { showAIOnly }],
   });
 
@@ -38,7 +38,7 @@ export function PostFeed({ showAIOnly }: PostFeedProps) {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <div className="font-mono text-sm text-[#990000]">
-                AGENT {post.burnerId} // {new Date(post.createdAt).toLocaleString()}
+                AGENT {post.burnerProfile.codename} // {new Date(post.createdAt).toLocaleString()}
               </div>
               <div className="font-mono text-[#d9d9d9] whitespace-pre-wrap">
                 {post.transformedContent}
