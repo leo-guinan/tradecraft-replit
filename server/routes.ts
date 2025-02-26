@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { insertBurnerProfileSchema, insertPostSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { customAlphabet } from "nanoid";
+import { transformMessage } from "./openai";
 
 const generateInviteCode = customAlphabet("123456789ABCDEFGHJKLMNPQRSTUVWXYZ", 8);
 
@@ -67,16 +68,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/posts", requireAuth, async (req, res) => {
     try {
       const postData = insertPostSchema.parse(req.body);
+      const burnerId = parseInt(req.body.burnerId);
+
+      // Get the burner profile for context
+      const burnerProfiles = await storage.getBurnerProfiles(req.user!.id);
+      const profile = burnerProfiles.find(p => p.id === burnerId);
+
+      if (!profile) {
+        return res.status(400).json({ message: "Invalid burner profile" });
+      }
+
+      // Transform the message using OpenAI
+      const transformedContent = await transformMessage(
+        postData.originalContent,
+        profile
+      );
+
       const post = await storage.createPost({
-        burnerId: parseInt(req.body.burnerId),
+        burnerId,
         originalContent: postData.originalContent,
-        transformedContent: postData.originalContent, // TODO: Transform with AI
+        transformedContent,
       });
+
       res.status(201).json(post);
     } catch (error) {
       if (error instanceof ZodError) {
         res.status(400).json(error.errors);
       } else {
+        console.error("Failed to create post:", error);
         res.status(500).json({ message: "Failed to create post" });
       }
     }
