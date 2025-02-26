@@ -61,6 +61,8 @@ export function CreateBurnerForm({
   const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
   const [traitIntensity, setTraitIntensity] = useState<Record<string, number>>({});
   const [selectedBackground, setSelectedBackground] = useState<string | null>(null);
+  const [codenameError, setCodenameError] = useState<string | null>(null);
+  const [checkingCodename, setCheckingCodename] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(insertBurnerProfileSchema),
@@ -74,14 +76,12 @@ export function CreateBurnerForm({
 
   const createBurnerMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Enhance personality description with selected traits and intensities
       const personalityDesc = selectedTraits
         .map(trait => `${trait} (${traitIntensity[trait]}%): ${
           personalityTraits.find(t => t.name === trait)?.description
         }`)
         .join("\n");
 
-      // Combine background type with custom background story
       const backgroundDesc = `Type: ${selectedBackground}\n${data.background}`;
 
       const enhancedData = {
@@ -105,6 +105,7 @@ export function CreateBurnerForm({
       setSelectedTraits([]);
       setTraitIntensity({});
       setSelectedBackground(null);
+      setCodenameError(null);
       toast({
         title: "Identity created",
         description: "Your new burner identity is ready for deployment.",
@@ -118,6 +119,23 @@ export function CreateBurnerForm({
           : error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  const checkCodenameMutation = useMutation({
+    mutationFn: async (codename: string) => {
+      const res = await apiRequest("POST", "/api/burner-profiles/check-codename", { codename });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to check codename");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setCodenameError(null);
+    },
+    onError: (error: Error) => {
+      setCodenameError("This codename is already in use. Please choose another.");
     },
   });
 
@@ -143,6 +161,19 @@ export function CreateBurnerForm({
     });
   };
 
+  const handleCodenameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    form.setValue("codename", value);
+
+    if (value.trim()) {
+      setCheckingCodename(true);
+      checkCodenameMutation.mutate(value);
+    } else {
+      setCodenameError(null);
+      setCheckingCodename(false);
+    }
+  };
+
   const renderStep = () => {
     switch (step) {
       case "basic":
@@ -158,8 +189,18 @@ export function CreateBurnerForm({
                     Choose a distinctive identifier for this identity
                   </FormDescription>
                   <FormControl>
-                    <TerminalInput {...field} />
+                    <TerminalInput {...field} onChange={handleCodenameChange} className={codenameError ? "border-red-500" : ""} />
                   </FormControl>
+                  {checkingCodename && (
+                    <p className="text-sm font-mono text-[#990000]">
+                      Verifying codename...
+                    </p>
+                  )}
+                  {codenameError && (
+                    <p className="text-sm font-mono text-red-500">
+                      {codenameError}
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -305,7 +346,7 @@ export function CreateBurnerForm({
   const canProceed = () => {
     switch (step) {
       case "basic":
-        return form.getValues("codename").length > 0;
+        return form.getValues("codename").length > 0 && !codenameError && !checkingCodename;
       case "personality":
         return selectedTraits.length > 0;
       case "background":
@@ -342,6 +383,7 @@ export function CreateBurnerForm({
           setSelectedTraits([]);
           setTraitIntensity({});
           setSelectedBackground(null);
+          setCodenameError(null);
           form.reset();
         }
         onOpenChange(newOpen);
