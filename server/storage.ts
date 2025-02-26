@@ -77,7 +77,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPosts(filters?: { burnerIds?: number[], showAIOnly?: boolean }): Promise<Post[]> {
-    let query = db.select().from(posts);
+    let query = db
+      .select()
+      .from(posts)
+      .leftJoin(burnerProfiles, eq(posts.burnerId, burnerProfiles.id));
 
     if (filters?.burnerIds?.length) {
       query = query.where(
@@ -91,7 +94,14 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    return await query.orderBy(desc(posts.createdAt));
+    const results = await query.orderBy(desc(posts.createdAt));
+    return results.map(r => ({
+      id: r.posts.id,
+      burnerId: r.posts.burnerId,
+      originalContent: r.posts.originalContent,
+      transformedContent: r.posts.transformedContent,
+      createdAt: r.posts.createdAt
+    }));
   }
 
   async createPost(post: Omit<Post, "id" | "createdAt">): Promise<Post> {
