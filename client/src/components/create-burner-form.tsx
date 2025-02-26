@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertBurnerProfileSchema } from "@shared/schema";
@@ -133,9 +133,11 @@ export function CreateBurnerForm({
     },
     onSuccess: () => {
       setCodenameError(null);
+      setCheckingCodename(false);
     },
     onError: (error: Error) => {
       setCodenameError("This codename is already in use. Please choose another.");
+      setCheckingCodename(false);
     },
   });
 
@@ -161,18 +163,34 @@ export function CreateBurnerForm({
     });
   };
 
+  const timeoutRef = useRef<NodeJS.Timeout>();
+
   const handleCodenameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     form.setValue("codename", value);
 
-    if (value.trim()) {
-      setCheckingCodename(true);
-      checkCodenameMutation.mutate(value);
-    } else {
+    // Clear error state if the field is empty
+    if (!value.trim()) {
       setCodenameError(null);
       setCheckingCodename(false);
+      return;
     }
+
+    // Debounce the API call to avoid too many requests
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setCheckingCodename(true);
+      checkCodenameMutation.mutate(value);
+    }, 500); // Wait 500ms before checking
   };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const renderStep = () => {
     switch (step) {
