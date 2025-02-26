@@ -1,7 +1,7 @@
 import { 
-  users, burnerProfiles, posts, inviteCodes,
+  users, burnerProfiles, posts, inviteCodes, identityGuesses,
   type User, type BurnerProfile, type Post, type InviteCode,
-  type AdminStats, type UserDetails
+  type AdminStats, type UserDetails, type IdentityGuess
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -15,6 +15,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: Omit<User, "id">): Promise<User>;
+  updateUserAccess(id: number, hasPostAccess: boolean): Promise<User>;
 
   getBurnerProfiles(userId: number): Promise<BurnerProfile[]>;
   createBurnerProfile(profile: Omit<BurnerProfile, "id">): Promise<BurnerProfile>;
@@ -28,9 +29,11 @@ export interface IStorage {
   createInviteCode(code: Omit<InviteCode, "id" | "createdAt" | "usedAt">): Promise<InviteCode>;
   useInviteCode(code: string, userId: number): Promise<void>;
 
+  getIdentityGuesses(postId: number): Promise<IdentityGuess[]>;
+  createIdentityGuess(guess: Omit<IdentityGuess, "id" | "createdAt" | "isCorrect">): Promise<IdentityGuess>;
+
   sessionStore: session.Store;
 
-  // Add new admin methods
   getAdminStats(): Promise<AdminStats>;
   getAllUsers(): Promise<User[]>;
   getUserDetails(id: number): Promise<UserDetails | undefined>;
@@ -61,6 +64,15 @@ export class DatabaseStorage implements IStorage {
   async createUser(user: Omit<User, "id">): Promise<User> {
     const [newUser] = await db.insert(users).values(user).returning();
     return newUser;
+  }
+
+  async updateUserAccess(id: number, hasPostAccess: boolean): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ hasPostAccess })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   async getBurnerProfiles(userId: number): Promise<BurnerProfile[]> {
@@ -105,15 +117,11 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(burnerProfiles, eq(posts.burnerId, burnerProfiles.id));
 
     if (filters?.burnerIds?.length) {
-      query = query.where(
-        eq(posts.burnerId, filters.burnerIds[0])
-      );
+      query = query.where(eq(posts.burnerId, filters.burnerIds[0]));
     }
 
     if (filters?.showAIOnly !== undefined) {
-      query = query.where(
-        eq(burnerProfiles.isAI, filters.showAIOnly)
-      );
+      query = query.where(eq(burnerProfiles.isAI, filters.showAIOnly));
     }
 
     const results = await query.orderBy(desc(posts.createdAt));
@@ -128,36 +136,33 @@ export class DatabaseStorage implements IStorage {
     return newPost;
   }
 
-  async getInviteCode(code: string): Promise<InviteCode | undefined> {
-    const [inviteCode] = await db
+  async getIdentityGuesses(postId: number): Promise<IdentityGuess[]> {
+    return await db
       .select()
-      .from(inviteCodes)
-      .where(eq(inviteCodes.code, code));
-    return inviteCode;
+      .from(identityGuesses)
+      .where(eq(identityGuesses.postId, postId))
+      .orderBy(desc(identityGuesses.createdAt));
   }
 
-  async getInviteCodes(): Promise<InviteCode[]> {
-    return await db.select().from(inviteCodes).orderBy(desc(inviteCodes.createdAt));
-  }
-
-  async createInviteCode(code: Omit<InviteCode, "id" | "createdAt" | "usedAt">): Promise<InviteCode> {
-    const [newCode] = await db.insert(inviteCodes).values(code).returning();
-    return newCode;
-  }
-
-  async useInviteCode(code: string, userId: number): Promise<void> {
-    await db
-      .update(inviteCodes)
-      .set({ 
-        usedById: userId,
-        usedAt: new Date()
+  async createIdentityGuess(guess: Omit<IdentityGuess, "id" | "createdAt" | "isCorrect">): Promise<IdentityGuess> {
+    // Check if the guess is correct by comparing with the actual post author
+    const [post] = await db
+      .select({
+        post: posts,
+        burnerProfile: burnerProfiles,
       })
-      .where(
-        and(
-          eq(inviteCodes.code, code),
-          eq(inviteCodes.usedById, null)
-        )
-      );
+      .from(posts)
+      .leftJoin(burnerProfiles, eq(posts.burnerId, burnerProfiles.id))
+      .where(eq(posts.id, guess.postId));
+
+    const isCorrect = post.burnerProfile.userId === guess.guessedUserId;
+
+    const [newGuess] = await db
+      .insert(identityGuesses)
+      .values({ ...guess, isCorrect })
+      .returning();
+
+    return newGuess;
   }
 
   async getAdminStats(): Promise<AdminStats> {

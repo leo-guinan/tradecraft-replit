@@ -8,6 +8,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
+  hasPostAccess: boolean("has_post_access").notNull().default(false),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
@@ -34,6 +35,15 @@ export const posts = pgTable("posts", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const identityGuesses = pgTable("identity_guesses", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => posts.id),
+  guesserId: integer("guesser_id").references(() => users.id),
+  guessedUserId: integer("guessed_user_id").references(() => users.id),
+  isCorrect: boolean("is_correct").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const inviteCodes = pgTable("invite_codes", {
   id: serial("id").primaryKey(),
   code: text("code").notNull().unique(),
@@ -46,6 +56,8 @@ export const inviteCodes = pgTable("invite_codes", {
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+}).extend({
+  inviteCode: z.string().optional(),
 });
 
 export const insertBurnerProfileSchema = createInsertSchema(burnerProfiles).pick({
@@ -65,11 +77,17 @@ export const insertInviteCodeSchema = createInsertSchema(inviteCodes).pick({
   code: true,
 });
 
+export const insertIdentityGuessSchema = createInsertSchema(identityGuesses).pick({
+  postId: true,
+  guessedUserId: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type BurnerProfile = typeof burnerProfiles.$inferSelect;
 export type Post = typeof posts.$inferSelect;
 export type InviteCode = typeof inviteCodes.$inferSelect;
+export type IdentityGuess = typeof identityGuesses.$inferSelect;
 
 export type AdminStats = {
   totalUsers: number;

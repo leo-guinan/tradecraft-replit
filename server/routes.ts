@@ -101,6 +101,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Public feed routes
+  app.get("/api/posts", async (req, res) => {
+    try {
+      const posts = await storage.getPosts();
+      res.json(posts);
+    } catch (error) {
+      console.error("Failed to fetch posts:", error);
+      res.status(500).json({ message: "Failed to fetch posts" });
+    }
+  });
+
+  app.get("/api/users", requireAuth, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/identity-guesses", requireAuth, async (req, res) => {
+    try {
+      const { postId, guessedUserId } = req.body;
+
+      if (!postId || !guessedUserId) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const guess = await storage.createIdentityGuess({
+        postId,
+        guesserId: req.user!.id,
+        guessedUserId,
+      });
+
+      res.json(guess);
+    } catch (error) {
+      console.error("Failed to create identity guess:", error);
+      res.status(500).json({ message: "Failed to submit guess" });
+    }
+  });
+
+  app.get("/api/identity-guesses/:postId", requireAuth, async (req, res) => {
+    try {
+      const guesses = await storage.getIdentityGuesses(parseInt(req.params.postId));
+      res.json(guesses);
+    } catch (error) {
+      console.error("Failed to fetch identity guesses:", error);
+      res.status(500).json({ message: "Failed to fetch guesses" });
+    }
+  });
+
   // Admin routes
   app.post("/api/invite-codes", requireAdmin, async (req, res) => {
     const code = generateInviteCode();
@@ -182,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const profiles = await storage.getBurnerProfiles(req.user!.id);
-      const exists = profiles.some(p => 
+      const exists = profiles.some(p =>
         p.codename.toLowerCase() === codename.toLowerCase()
       );
 

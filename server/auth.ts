@@ -71,17 +71,6 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res, next) => {
     try {
-      // Validate invite code
-      const inviteCode = req.body.inviteCode;
-      if (!inviteCode) {
-        return res.status(400).send("Invite code required");
-      }
-
-      const code = await storage.getInviteCode(inviteCode);
-      if (!code || code.usedById) {
-        return res.status(400).send("Invalid or used invite code");
-      }
-
       // Validate user data
       const userData = insertUserSchema.parse(req.body);
 
@@ -91,6 +80,17 @@ export function setupAuth(app: Express) {
         return res.status(400).send("Username already exists");
       }
 
+      let hasPostAccess = false;
+
+      // Check invite code if provided
+      if (userData.inviteCode) {
+        const code = await storage.getInviteCode(userData.inviteCode);
+        if (!code || code.usedById) {
+          return res.status(400).send("Invalid or used invite code");
+        }
+        hasPostAccess = true;
+      }
+
       // Create user
       const hashedPassword = await hashPassword(userData.password);
       const user = await storage.createUser({
@@ -98,10 +98,13 @@ export function setupAuth(app: Express) {
         username: userData.username,
         password: hashedPassword,
         isAdmin: false,
+        hasPostAccess,
       });
 
-      // Mark invite code as used
-      await storage.useInviteCode(inviteCode, user.id);
+      // Mark invite code as used if provided
+      if (userData.inviteCode) {
+        await storage.useInviteCode(userData.inviteCode, user.id);
+      }
 
       // Log user in
       req.login(user, (err) => {
@@ -131,5 +134,28 @@ export function setupAuth(app: Express) {
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     res.json(req.user);
+  });
+
+  // Add route to upgrade user access with invite code
+  app.post("/api/user/upgrade", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Authentication required");
+    }
+
+    const inviteCode = req.body.inviteCode;
+    if (!inviteCode) {
+      return res.status(400).send("Invite code required");
+    }
+
+    const code = await storage.getInviteCode(inviteCode);
+    if (!code || code.usedById) {
+      return res.status(400).send("Invalid or used invite code");
+    }
+
+    // Update user access and mark invite code as used
+    const user = await storage.updateUserAccess(req.user.id, true);
+    await storage.useInviteCode(inviteCode, req.user.id);
+
+    res.json(user);
   });
 }
