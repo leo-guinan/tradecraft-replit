@@ -23,6 +23,7 @@ export interface IStorage {
   createPost(post: Omit<Post, "id" | "createdAt">): Promise<Post>;
 
   getInviteCode(code: string): Promise<InviteCode | undefined>;
+  getInviteCodes(): Promise<InviteCode[]>;
   createInviteCode(code: Omit<InviteCode, "id" | "createdAt" | "usedAt">): Promise<InviteCode>;
   useInviteCode(code: string, userId: number): Promise<void>;
 
@@ -115,6 +116,10 @@ export class DatabaseStorage implements IStorage {
       .from(inviteCodes)
       .where(eq(inviteCodes.code, code));
     return inviteCode;
+  }
+
+  async getInviteCodes(): Promise<InviteCode[]> {
+    return await db.select().from(inviteCodes).orderBy(desc(inviteCodes.createdAt));
   }
 
   async createInviteCode(code: Omit<InviteCode, "id" | "createdAt" | "usedAt">): Promise<InviteCode> {

@@ -94,9 +94,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/invite-codes", requireAdmin, async (req, res) => {
-    // This would need to be added to the storage interface
-    // For now, return empty array
-    res.json([]);
+    const inviteCodes = await storage.getInviteCodes();
+    res.json(inviteCodes);
   });
 
   const httpServer = createServer(app);
