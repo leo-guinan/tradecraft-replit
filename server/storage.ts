@@ -1,8 +1,14 @@
-import { type User, type BurnerProfile, type Post, type InviteCode } from "@shared/schema";
+import { 
+  users, burnerProfiles, posts, inviteCodes,
+  type User, type BurnerProfile, type Post, type InviteCode 
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPgSimple(session);
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -23,115 +29,103 @@ export interface IStorage {
   sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private burnerProfiles: Map<number, BurnerProfile>;
-  private posts: Map<number, Post>;
-  private inviteCodes: Map<string, InviteCode>;
-  private currentId: number;
+export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.burnerProfiles = new Map();
-    this.posts = new Map();
-    this.inviteCodes = new Map();
-    this.currentId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(user: Omit<User, "id">): Promise<User> {
-    const id = this.currentId++;
-    const newUser = { ...user, id };
-    this.users.set(id, newUser);
+    const [newUser] = await db.insert(users).values(user).returning();
     return newUser;
   }
 
   async getBurnerProfiles(userId: number): Promise<BurnerProfile[]> {
-    return Array.from(this.burnerProfiles.values()).filter(
-      (profile) => profile.userId === userId,
-    );
+    return await db
+      .select()
+      .from(burnerProfiles)
+      .where(eq(burnerProfiles.userId, userId));
   }
 
   async createBurnerProfile(profile: Omit<BurnerProfile, "id">): Promise<BurnerProfile> {
-    const id = this.currentId++;
-    const newProfile = { ...profile, id };
-    this.burnerProfiles.set(id, newProfile);
+    const [newProfile] = await db
+      .insert(burnerProfiles)
+      .values(profile)
+      .returning();
     return newProfile;
   }
 
   async deactivateBurnerProfile(id: number): Promise<void> {
-    const profile = this.burnerProfiles.get(id);
-    if (profile) {
-      this.burnerProfiles.set(id, { ...profile, isActive: false });
-    }
+    await db
+      .update(burnerProfiles)
+      .set({ isActive: false })
+      .where(eq(burnerProfiles.id, id));
   }
 
   async getPosts(filters?: { burnerIds?: number[], showAIOnly?: boolean }): Promise<Post[]> {
-    let posts = Array.from(this.posts.values());
+    let query = db.select().from(posts);
 
     if (filters?.burnerIds?.length) {
-      posts = posts.filter(post => filters.burnerIds!.includes(post.burnerId));
+      query = query.where(
+        eq(posts.burnerId, filters.burnerIds[0])
+      );
     }
 
     if (filters?.showAIOnly !== undefined) {
-      const aiProfiles = new Set(
-        Array.from(this.burnerProfiles.values())
-          .filter(p => p.isAI === filters.showAIOnly)
-          .map(p => p.id)
+      query = query.where(
+        eq(burnerProfiles.isAI, filters.showAIOnly)
       );
-      posts = posts.filter(post => post.burnerId && aiProfiles.has(post.burnerId));
     }
 
-    return posts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await query.orderBy(desc(posts.createdAt));
   }
 
   async createPost(post: Omit<Post, "id" | "createdAt">): Promise<Post> {
-    const id = this.currentId++;
-    const newPost = { ...post, id, createdAt: new Date() };
-    this.posts.set(id, newPost);
+    const [newPost] = await db.insert(posts).values(post).returning();
     return newPost;
   }
 
   async getInviteCode(code: string): Promise<InviteCode | undefined> {
-    return this.inviteCodes.get(code);
+    const [inviteCode] = await db
+      .select()
+      .from(inviteCodes)
+      .where(eq(inviteCodes.code, code));
+    return inviteCode;
   }
 
   async createInviteCode(code: Omit<InviteCode, "id" | "createdAt" | "usedAt">): Promise<InviteCode> {
-    const id = this.currentId++;
-    const newCode = { 
-      ...code,
-      id,
-      createdAt: new Date(),
-      usedAt: null,
-      usedById: null,
-    };
-    this.inviteCodes.set(code.code, newCode);
+    const [newCode] = await db.insert(inviteCodes).values(code).returning();
     return newCode;
   }
 
   async useInviteCode(code: string, userId: number): Promise<void> {
-    const inviteCode = this.inviteCodes.get(code);
-    if (inviteCode && !inviteCode.usedById) {
-      this.inviteCodes.set(code, {
-        ...inviteCode,
+    await db
+      .update(inviteCodes)
+      .set({ 
         usedById: userId,
-        usedAt: new Date(),
-      });
-    }
+        usedAt: new Date()
+      })
+      .where(
+        and(
+          eq(inviteCodes.code, code),
+          eq(inviteCodes.usedById, null)
+        )
+      );
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
