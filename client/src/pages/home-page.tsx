@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { BurnerProfileCard } from "@/components/burner-profile";
+import { CreateBurnerForm } from "@/components/create-burner-form";
 import { CreatePost } from "@/components/create-post";
 import { PostFeed } from "@/components/post-feed";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export default function HomePage() {
   const { logoutMutation, user } = useAuth();
   const [activeBurnerId, setActiveBurnerId] = useState<number | null>(null);
   const [showAIOnly, setShowAIOnly] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const { data: burnerProfiles } = useQuery<BurnerProfile[]>({
     queryKey: ["/api/burner-profiles"],
@@ -66,7 +68,7 @@ export default function HomePage() {
           <div className="lg:col-span-1 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="font-mono text-lg">ACTIVE IDENTITIES</h2>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => setShowCreateForm(true)}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -77,6 +79,7 @@ export default function HomePage() {
                   key={profile.id}
                   profile={profile}
                   isActive={profile.id === activeBurnerId}
+                  onClick={() => setActiveBurnerId(profile.id)}
                   onDelete={
                     profile.id === activeBurnerId
                       ? undefined
@@ -126,6 +129,8 @@ export default function HomePage() {
           </div>
         </div>
       </main>
+
+      <CreateBurnerForm open={showCreateForm} onOpenChange={setShowCreateForm} />
     </div>
   );
 }

@@ -7,12 +7,18 @@ import { ClassificationStamp } from "./classification-stamp";
 interface BurnerProfileCardProps {
   profile: BurnerProfile;
   onDelete?: () => void;
+  onClick?: () => void;
   isActive?: boolean;
 }
 
-export function BurnerProfileCard({ profile, onDelete, isActive }: BurnerProfileCardProps) {
+export function BurnerProfileCard({ profile, onDelete, onClick, isActive }: BurnerProfileCardProps) {
   return (
-    <Card className="relative bg-[#1a1a1a] border-[#2a2a2a]">
+    <Card 
+      className={`relative bg-[#1a1a1a] border-[#2a2a2a] cursor-pointer transition-colors ${
+        isActive ? 'border-[#990000]' : 'hover:border-[#990000]/50'
+      }`}
+      onClick={onClick}
+    >
       <ClassificationStamp level="confidential" className="top-2 right-2 scale-75" />
 
       <CardHeader className="space-y-1">
@@ -25,7 +31,10 @@ export function BurnerProfileCard({ profile, onDelete, isActive }: BurnerProfile
             <Button
               variant="ghost"
               size="icon"
-              onClick={onDelete}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
               className="text-[#990000] hover:text-[#cc0000]"
             >
               <Trash2 className="h-4 w-4" />
