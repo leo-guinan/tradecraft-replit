@@ -174,7 +174,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add this to the existing routes in registerRoutes function
   app.post("/api/burner-profiles/check-codename", requireAuth, async (req, res) => {
     try {
       const { codename } = req.body;
@@ -183,7 +182,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const profiles = await storage.getBurnerProfiles(req.user!.id);
-      const exists = profiles.some(p => p.codename === codename);
+      const exists = profiles.some(p => 
+        p.codename.toLowerCase() === codename.toLowerCase()
+      );
 
       if (exists) {
         return res.status(400).json({ message: "Codename already exists" });

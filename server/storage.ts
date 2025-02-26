@@ -71,6 +71,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBurnerProfile(profile: Omit<BurnerProfile, "id">): Promise<BurnerProfile> {
+    // Check for case-insensitive duplicates first
+    const existingProfiles = await db
+      .select()
+      .from(burnerProfiles)
+      .where(sql`LOWER(${burnerProfiles.codename}) = LOWER(${profile.codename})`);
+
+    if (existingProfiles.length > 0) {
+      throw new Error("This codename is already in use. Please choose another.");
+    }
+
     const [newProfile] = await db
       .insert(burnerProfiles)
       .values(profile)
