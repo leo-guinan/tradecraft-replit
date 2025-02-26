@@ -19,7 +19,7 @@ export function CreatePost({ activeBurner }: CreatePostProps) {
     mutationFn: async (content: string) => {
       const res = await apiRequest("POST", "/api/posts", {
         burnerId: activeBurner.id,
-        content,
+        originalContent: content,
       });
       return res.json();
     },

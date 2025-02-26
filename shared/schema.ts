@@ -51,6 +51,8 @@ export const insertBurnerProfileSchema = createInsertSchema(burnerProfiles).pick
 
 export const insertPostSchema = createInsertSchema(posts).pick({
   originalContent: true,
+}).extend({
+  burnerId: z.number()
 });
 
 export const insertInviteCodeSchema = createInsertSchema(inviteCodes).pick({
