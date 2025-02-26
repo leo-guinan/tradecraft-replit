@@ -117,6 +117,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(inviteCodes);
   });
 
+  // New Admin Analytics Routes
+  app.get("/api/admin/stats", requireAdmin, async (req, res) => {
+    try {
+      const stats = await storage.getAdminStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to fetch admin stats:", error);
+      res.status(500).json({ message: "Failed to fetch admin statistics" });
+    }
+  });
+
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUserDetails(parseInt(req.params.id));
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Failed to fetch user details:", error);
+      res.status(500).json({ message: "Failed to fetch user details" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/role", requireAdmin, async (req, res) => {
+    try {
+      const { isAdmin } = req.body;
+      if (typeof isAdmin !== "boolean") {
+        return res.status(400).json({ message: "Invalid role update" });
+      }
+
+      // Prevent removing the last admin
+      if (!isAdmin) {
+        const adminCount = await storage.getAdminCount();
+        if (adminCount <= 1) {
+          return res.status(400).json({ message: "Cannot remove the last admin" });
+        }
+      }
+
+      const user = await storage.updateUserRole(parseInt(req.params.id), isAdmin);
+      res.json(user);
+    } catch (error) {
+      console.error("Failed to update user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

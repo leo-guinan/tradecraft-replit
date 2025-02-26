@@ -1,9 +1,10 @@
 import { 
   users, burnerProfiles, posts, inviteCodes,
-  type User, type BurnerProfile, type Post, type InviteCode 
+  type User, type BurnerProfile, type Post, type InviteCode,
+  type AdminStats, type UserDetails
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
@@ -28,6 +29,13 @@ export interface IStorage {
   useInviteCode(code: string, userId: number): Promise<void>;
 
   sessionStore: session.Store;
+
+  // Add new admin methods
+  getAdminStats(): Promise<AdminStats>;
+  getAllUsers(): Promise<User[]>;
+  getUserDetails(id: number): Promise<UserDetails | undefined>;
+  updateUserRole(id: number, isAdmin: boolean): Promise<User>;
+  getAdminCount(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -140,6 +148,87 @@ export class DatabaseStorage implements IStorage {
           eq(inviteCodes.usedById, null)
         )
       );
+  }
+
+  async getAdminStats(): Promise<AdminStats> {
+    const [result] = await db.select({
+      totalUsers: sql<number>`count(distinct ${users.id})`,
+      activeUsers: sql<number>`count(distinct ${posts.burnerId})`,
+      totalPosts: sql<number>`count(${posts.id})`,
+      totalBurnerProfiles: sql<number>`count(distinct ${burnerProfiles.id})`,
+      averagePostsPerUser: sql<number>`count(${posts.id})::float / count(distinct ${users.id})`,
+    }).from(users)
+    .leftJoin(burnerProfiles, eq(users.id, burnerProfiles.userId))
+    .leftJoin(posts, eq(burnerProfiles.id, posts.burnerId));
+
+    const activeUsersQuery = await db
+      .select({
+        username: users.username,
+        postCount: sql<number>`count(${posts.id})`,
+      })
+      .from(users)
+      .leftJoin(burnerProfiles, eq(users.id, burnerProfiles.userId))
+      .leftJoin(posts, eq(burnerProfiles.id, posts.burnerId))
+      .groupBy(users.username)
+      .orderBy(sql`count(${posts.id}) desc`)
+      .limit(5);
+
+    return {
+      ...result,
+      mostActiveUsers: activeUsersQuery.map(u => ({
+        username: u.username,
+        postCount: Number(u.postCount) || 0,
+      })),
+    };
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async getUserDetails(id: number): Promise<UserDetails | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    if (!user) return undefined;
+
+    const profiles = await db
+      .select()
+      .from(burnerProfiles)
+      .where(eq(burnerProfiles.userId, id));
+
+    const [stats] = await db
+      .select({
+        postCount: sql<number>`count(${posts.id})`,
+        lastActive: sql<Date>`max(${posts.createdAt})`,
+      })
+      .from(burnerProfiles)
+      .leftJoin(posts, eq(posts.burnerId, burnerProfiles.id))
+      .where(eq(burnerProfiles.userId, id));
+
+    return {
+      ...user,
+      burnerProfiles: profiles,
+      postCount: Number(stats.postCount) || 0,
+      lastActive: stats.lastActive,
+    };
+  }
+
+  async updateUserRole(id: number, isAdmin: boolean): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ isAdmin })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async getAdminCount(): Promise<number> {
+    const [result] = await db
+      .select({
+        count: sql<number>`count(*)`,
+      })
+      .from(users)
+      .where(eq(users.isAdmin, true));
+    return Number(result.count);
   }
 }
 

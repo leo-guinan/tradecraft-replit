@@ -1,12 +1,15 @@
 import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { sql } from "drizzle-orm";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const burnerProfiles = pgTable("burner_profiles", {
@@ -18,6 +21,9 @@ export const burnerProfiles = pgTable("burner_profiles", {
   background: text("background").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   isAI: boolean("is_ai").notNull().default(false),
+  postCount: integer("post_count").notNull().default(0),
+  lastPostAt: timestamp("last_post_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const posts = pgTable("posts", {
@@ -64,3 +70,21 @@ export type User = typeof users.$inferSelect;
 export type BurnerProfile = typeof burnerProfiles.$inferSelect;
 export type Post = typeof posts.$inferSelect;
 export type InviteCode = typeof inviteCodes.$inferSelect;
+
+export type AdminStats = {
+  totalUsers: number;
+  activeUsers: number;
+  totalPosts: number;
+  totalBurnerProfiles: number;
+  averagePostsPerUser: number;
+  mostActiveUsers: Array<{
+    username: string;
+    postCount: number;
+  }>;
+};
+
+export type UserDetails = typeof users.$inferSelect & {
+  burnerProfiles: Array<typeof burnerProfiles.$inferSelect>;
+  postCount: number;
+  lastActive: Date | null;
+};
