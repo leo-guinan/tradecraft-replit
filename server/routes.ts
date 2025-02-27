@@ -7,8 +7,7 @@ import { ZodError } from "zod";
 import { customAlphabet } from "nanoid";
 import { transformMessage } from "./openai";
 import { getAccountId, createBurnerFromArchive, importTweetsForBurner } from './archive';
-import { getTweetsPaginated } from './archive'; // Added import for getTweetsPaginated
-
+import { getTweetsPaginated } from './archive';
 
 const generateInviteCode = customAlphabet("123456789ABCDEFGHJKLMNPQRSTUVWXYZ", 8);
 
@@ -323,6 +322,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add routes for managing archive ingestion and burner creation
+  app.post("/api/admin/archive/ingest", requireAdmin, async (req, res) => {
+    try {
+      const { username, rateLimit } = req.body;
+      if (!username) {
+        return res.status(400).json({ message: "Username is required" });
+      }
+
+      // Get account ID
+      const accountId = await getAccountId(username);
+      if (!accountId) {
+        return res.status(400).json({ message: "Account not found" });
+      }
+
+      // Start tweet ingestion with rate limiting
+      const tweets = await getTweetsPaginated(accountId);
+      if ('error' in tweets) {
+        return res.status(500).json({ message: tweets.error });
+      }
+
+      res.json({
+        accountId,
+        tweetsIngested: tweets.length,
+        status: "completed"
+      });
+    } catch (error) {
+      console.error("Failed to start tweet ingestion:", error);
+      res.status(500).json({ message: "Failed to start tweet ingestion" });
+    }
+  });
+
+  app.post("/api/admin/archive/create-burner", requireAdmin, async (req, res) => {
+    try {
+      const { username, selectedTweets, postFrequency, duration } = req.body;
+
+      // Create burner profile
+      const result = await createBurnerFromArchive(req.user!.id, username);
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      // Schedule posts based on frequency and duration
+      const burnerId = result.burnerProfile!.id;
+      const importResult = await importTweetsForBurner(burnerId, selectedTweets);
+
+      if (importResult.error) {
+        return res.status(400).json({ message: importResult.error });
+      }
+
+      res.json({
+        burnerProfile: result.burnerProfile,
+        tweetsImported: importResult.count,
+        postFrequency,
+        duration
+      });
+    } catch (error) {
+      console.error("Failed to create burner from archive:", error);
+      res.status(500).json({ message: "Failed to create burner from archive" });
+    }
+  });
+
+  app.get("/api/admin/archive/tweets/:username", requireAdmin, async (req, res) => {
+    try {
+      const { username } = req.params;
+      const accountId = await getAccountId(username);
+
+      if (!accountId) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+
+      // Get all tweets for this account
+      const tweets = await getTweetsPaginated(accountId);
+      if ('error' in tweets) {
+        return res.status(500).json({ message: tweets.error });
+      }
+
+      res.json({
+        tweets: tweets.map(tweet => ({
+          id: tweet.id,
+          text: tweet.full_text || tweet.text,
+          created_at: tweet.created_at
+        })),
+        totalTweets: tweets.length,
+        username,
+      });
+    } catch (error) {
+      console.error("Failed to fetch archive tweets:", error);
+      res.status(500).json({ message: "Failed to fetch archive tweets" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
