@@ -66,13 +66,13 @@ export async function getTweetsPaginated(accountId: string) {
   return allTweets;
 }
 
-export async function getProfileInfo(username: string) {
+export async function getProfileInfo(accountId: string) {
   try {
-    console.log(`Fetching profile info for username: ${username}`);
+    console.log(`Fetching profile info for account ID: ${accountId}`);
     const { data, error } = await supabase
       .from('profile')
       .select('*')
-      .eq('username', username.toLowerCase())
+      .eq('account_id', accountId)
       .single();
 
     if (error) {
@@ -92,8 +92,14 @@ export async function createBurnerFromArchive(userId: number, username: string):
   error?: string;
 }> {
   try {
-    // Get profile info
-    const profile = await getProfileInfo(username);
+    // First get account ID
+    const accountId = await getAccountId(username);
+    if (!accountId) {
+      return { error: "Account not found" };
+    }
+
+    // Get profile info using account ID
+    const profile = await getProfileInfo(accountId);
     if (!profile) {
       return { error: "Profile not found" };
     }
