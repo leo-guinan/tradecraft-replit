@@ -213,16 +213,24 @@ export class DatabaseStorage implements IStorage {
       .from(burnerProfiles)
       .where(eq(burnerProfiles.userId, id));
 
-    // Get stats with proper null handling
+    // Get stats
     const [stats] = await db
       .select({
-        postCount: sql<number>`count(distinct ${posts.id})::integer`,
-        lastActive: sql<Date | null>`max(${posts.createdAt})`,
+        postCount: sql<number>`(
+          SELECT COUNT(DISTINCT p.id)::integer
+          FROM ${posts} p
+          JOIN ${burnerProfiles} bp ON bp.id = p.burner_id
+          WHERE bp.user_id = ${id}
+        )`,
+        lastActive: sql<Date | null>`(
+          SELECT MAX(p.created_at)
+          FROM ${posts} p
+          JOIN ${burnerProfiles} bp ON bp.id = p.burner_id
+          WHERE bp.user_id = ${id}
+        )`,
       })
-      .from(burnerProfiles)
-      .leftJoin(posts, eq(burnerProfiles.id, posts.burnerId))
-      .where(eq(burnerProfiles.userId, id))
-      .groupBy(burnerProfiles.userId);
+      .from(users)
+      .where(eq(users.id, id));
 
     return {
       ...user,
