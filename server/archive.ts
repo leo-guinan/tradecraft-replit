@@ -7,64 +7,84 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function getAccountId(username: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('account')
-    .select('account_id')
-    .eq('username', username.toLowerCase())
-    .single();
+  try {
+    console.log(`Fetching account ID for username: ${username}`);
+    const { data, error } = await supabase
+      .from('account')
+      .select('account_id')
+      .eq('username', username.toLowerCase())
+      .single();
 
-  if (error) {
-    console.error("Error fetching account:", error);
+    if (error) {
+      console.error("Error fetching account:", error);
+      return null;
+    }
+
+    console.log(`Found account ID: ${data?.account_id}`);
+    return data?.account_id;
+  } catch (error) {
+    console.error("Error in getAccountId:", error);
     return null;
   }
-
-  return data?.account_id;
 }
 
 export async function getTweetsPaginated(accountId: string) {
-  let allTweets = [];
+  let allTweets: any[] = [];
   let batchSize = 1000;
   let offset = 0;
   let done = false;
 
+  console.log(`Starting tweet fetch for account ID: ${accountId}`);
+
   while (!done) {
-    const { data, error } = await supabase
-      .schema('public')
-      .from('tweets')
-      .select('*')
-      .eq('account_id', accountId)
-      .range(offset, offset + batchSize - 1);
+    try {
+      const { data, error } = await supabase
+        .from('tweets')
+        .select('*')
+        .eq('account_id', accountId)
+        .range(offset, offset + batchSize - 1);
 
-    if (error) {
-      console.error("Error fetching tweets:", error);
+      if (error) {
+        console.error("Error fetching tweets:", error);
+        return { error };
+      }
+
+      if (!data || data.length === 0) {
+        done = true;
+      } else {
+        console.log(`Got ${data.length} tweets, fetching another page...`);
+        allTweets = allTweets.concat(data);
+        offset += batchSize;
+      }
+    } catch (error) {
+      console.error("Error in getTweetsPaginated:", error);
       return { error };
-    }
-
-    if (data.length === 0) {
-      done = true;
-    } else {
-      console.log(`Got ${data.length} tweets, fetching another page...`);
-      allTweets = allTweets.concat(data);
-      offset += batchSize;
     }
   }
 
+  console.log(`Total tweets fetched: ${allTweets.length}`);
   return allTweets;
 }
 
 export async function getProfileInfo(username: string) {
-  const { data, error } = await supabase
-    .from('profile')
-    .select('*')
-    .eq('username', username.toLowerCase())
-    .single();
+  try {
+    console.log(`Fetching profile info for username: ${username}`);
+    const { data, error } = await supabase
+      .from('profile')
+      .select('*')
+      .eq('username', username.toLowerCase())
+      .single();
 
-  if (error) {
-    console.error("Error fetching profile:", error);
+    if (error) {
+      console.error("Error fetching profile:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getProfileInfo:", error);
     return null;
   }
-
-  return data;
 }
 
 export async function createBurnerFromArchive(userId: number, username: string): Promise<{
@@ -90,7 +110,7 @@ export async function createBurnerFromArchive(userId: number, username: string):
     });
 
     return { burnerProfile };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating burner profile:", error);
     return { error: error.message };
   }
@@ -113,8 +133,9 @@ export async function importTweetsForBurner(burnerId: number, accountId: string)
       importedCount++;
     }
 
+    console.log(`Successfully imported ${importedCount} tweets for burner ID: ${burnerId}`);
     return { success: true, count: importedCount };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error importing tweets:", error);
     return { error: error.message };
   }

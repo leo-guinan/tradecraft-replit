@@ -38,6 +38,8 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<number | null>(null);
   const [archiveUsername, setArchiveUsername] = useState("");
   const [showArchivePreview, setShowArchivePreview] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null); // Added state for search errors
+
 
   // Redirect if not admin
   if (user && !user.isAdmin) {
@@ -113,9 +115,10 @@ export default function AdminPage() {
     });
   };
 
-  const { data: archivePreview, isLoading: previewLoading } = useQuery<ArchivePreview>({
+  const { data: archivePreview, isLoading: previewLoading, error: previewError } = useQuery<ArchivePreview>({
     queryKey: ["/api/admin/archive/preview", archiveUsername],
     enabled: showArchivePreview && !!archiveUsername,
+    queryFn: () => apiRequest("GET", `/api/admin/archive/preview/${archiveUsername.toLowerCase()}`).then(res => res.json()),
   });
 
   const importArchiveMutation = useMutation({
@@ -326,11 +329,17 @@ export default function AdminPage() {
                 <Input
                   placeholder="Enter username to import..."
                   value={archiveUsername}
-                  onChange={(e) => setArchiveUsername(e.target.value)}
+                  onChange={(e) => {
+                    setArchiveUsername(e.target.value);
+                    setSearchError(null); //clear error on input change
+                  }}
                   className="bg-[#0a0a0a] border-[#2a2a2a] font-mono"
                 />
                 <Button
-                  onClick={() => setShowArchivePreview(true)}
+                  onClick={() => {
+                    setSearchError(null); //clear error before search
+                    setShowArchivePreview(true);
+                  }}
                   disabled={!archiveUsername || previewLoading}
                   className="bg-[#990000] hover:bg-[#cc0000] font-mono"
                 >
@@ -341,6 +350,19 @@ export default function AdminPage() {
                   )}
                 </Button>
               </div>
+
+              {searchError && (
+                <div className="p-2 border border-red-500 rounded">
+                  <p className="font-mono text-red-500">{searchError}</p>
+                </div>
+              )}
+
+              {previewLoading && (
+                <div className="text-center p-4">
+                  <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
+                  <p className="font-mono text-[#990000]">SEARCHING ARCHIVES...</p>
+                </div>
+              )}
 
               {archivePreview && (
                 <div className="space-y-4 p-4 border border-[#2a2a2a] rounded">
@@ -369,6 +391,12 @@ export default function AdminPage() {
                     ) : null}
                     IMPORT ARCHIVE
                   </Button>
+                </div>
+              )}
+
+              {previewError && (
+                <div className="p-4 border border-red-500 rounded">
+                  <p className="font-mono text-red-500">Failed to load archive preview: {previewError?.message}</p>
                 </div>
               )}
             </div>
