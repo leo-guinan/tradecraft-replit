@@ -43,10 +43,18 @@ export default function AdminPage() {
     queryKey: ["/api/admin/users"],
   });
 
-  const { data: selectedUserDetails } = useQuery<UserDetails>({
+  const { data: selectedUserDetails, isError: detailsError } = useQuery<UserDetails>({
     queryKey: ["/api/admin/users", selectedUser],
     enabled: selectedUser !== null,
   });
+
+  if (detailsError) {
+    toast({
+      title: "Error",
+      description: "Failed to load user details",
+      variant: "destructive",
+    });
+  }
 
   const { data: inviteCodes } = useQuery<InviteCode[]>({
     queryKey: ["/api/invite-codes"],
@@ -300,17 +308,23 @@ export default function AdminPage() {
             <div className="space-y-2">
               <p className="font-mono text-sm text-[#990000]">BURNER PROFILES</p>
               <div className="space-y-2">
-                {selectedUserDetails?.burnerProfiles.map((profile) => (
-                  <div
-                    key={profile.id}
-                    className="p-3 border border-[#2a2a2a] rounded"
-                  >
-                    <p className="font-mono">{profile.codename}</p>
-                    <p className="font-mono text-xs text-[#990000]">
-                      {profile.isActive ? "ACTIVE" : "DEACTIVATED"}
-                    </p>
+                {selectedUserDetails?.burnerProfiles?.length ? (
+                  selectedUserDetails.burnerProfiles.map((profile) => (
+                    <div
+                      key={profile.id}
+                      className="p-3 border border-[#2a2a2a] rounded"
+                    >
+                      <p className="font-mono">{profile.codename}</p>
+                      <p className="font-mono text-xs text-[#990000]">
+                        {profile.isActive ? "ACTIVE" : "DEACTIVATED"}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 border border-[#2a2a2a] rounded">
+                    <p className="font-mono text-[#990000]">NO BURNER PROFILES</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
