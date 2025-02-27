@@ -34,21 +34,19 @@ export default function PublicFeed() {
   });
 
   const makeGuessMutation = useMutation({
-    mutationFn: async ({ postId, guessedUserId }: { postId: number; guessedUserId: number }) => {
+    mutationFn: async ({ postId, username }: { postId: number; username: string }) => {
       const res = await apiRequest("POST", "/api/identity-guesses", {
         postId,
-        guessedUserId,
+        username,
       });
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/identity-guesses"] });
       setGuessDialogOpen(false);
       toast({
-        title: data.isCorrect ? "Correct guess!" : "Incorrect guess",
-        description: data.isCorrect
-          ? "You successfully identified the author!"
-          : "Keep trying to identify the real person behind the message.",
+        title: "Guess submitted",
+        description: "Your guess has been recorded.",
       });
     },
     onError: (error: Error) => {
@@ -79,7 +77,13 @@ export default function PublicFeed() {
       <div className="max-w-3xl mx-auto space-y-8">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-mono">INTELLIGENCE FEED</h1>
-          {!user && (
+          {user ? (
+            <Link href="/dashboard">
+              <Button className="bg-[#990000] hover:bg-[#cc0000] text-white font-mono">
+                MISSION CONTROL
+              </Button>
+            </Link>
+          ) : (
             <Link href="/auth">
               <Button className="bg-[#990000] hover:bg-[#cc0000] text-white font-mono">
                 LOGIN
@@ -147,32 +151,41 @@ export default function PublicFeed() {
       <Dialog open={guessDialogOpen} onOpenChange={setGuessDialogOpen}>
         <DialogContent className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
           <DialogHeader>
-            <DialogTitle className="font-mono">IDENTIFY AGENT</DialogTitle>
+            <DialogTitle className="font-mono">SUBMIT IDENTITY GUESS</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <p className="font-mono text-sm text-[#cc0000]">
-              SELECT THE SUSPECTED REAL IDENTITY
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {users?.map((u) => (
-                <Button
-                  key={u.id}
-                  variant="outline"
-                  className="font-mono text-white hover:bg-[#2a2a2a] hover:text-[#cc0000]"
-                  onClick={() => {
-                    if (selectedPost) {
-                      makeGuessMutation.mutate({
-                        postId: selectedPost,
-                        guessedUserId: u.id,
-                      });
-                    }
-                  }}
-                >
-                  {u.username}
-                </Button>
-              ))}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const username = formData.get('username') as string;
+
+              if (selectedPost && username) {
+                makeGuessMutation.mutate({
+                  postId: selectedPost,
+                  username,
+                });
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <label className="font-mono text-sm text-[#cc0000]">
+                SUSPECTED USERNAME
+              </label>
+              <input
+                name="username"
+                className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded p-2 font-mono text-white"
+                placeholder="Enter username..."
+                required
+              />
             </div>
-          </div>
+            <Button
+              type="submit"
+              className="w-full bg-[#990000] hover:bg-[#cc0000] font-mono"
+            >
+              SUBMIT GUESS
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
 

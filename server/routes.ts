@@ -120,19 +120,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/identity-guesses", requireAuth, async (req, res) => {
     try {
-      const { postId, guessedUserId } = req.body;
+      const { postId, username } = req.body;
 
-      if (!postId || !guessedUserId) {
+      if (!postId || !username) {
         return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Find user by username
+      const guessedUser = await storage.getUserByUsername(username);
+      if (!guessedUser) {
+        return res.status(400).json({ message: "User not found" });
       }
 
       const guess = await storage.createIdentityGuess({
         postId,
         guesserId: req.user!.id,
-        guessedUserId,
+        guessedUserId: guessedUser.id,
       });
 
-      res.json(guess);
+      // Don't reveal if the guess was correct
+      const { isCorrect, ...guessWithoutResult } = guess;
+      res.json(guessWithoutResult);
     } catch (error) {
       console.error("Failed to create identity guess:", error);
       res.status(500).json({ message: "Failed to submit guess" });
