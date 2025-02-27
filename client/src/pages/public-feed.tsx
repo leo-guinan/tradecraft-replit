@@ -15,6 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Lock } from "lucide-react";
 import { useState } from "react";
+import { Link } from "wouter";
 import type { Post, BurnerProfile, User } from "@shared/schema";
 
 export default function PublicFeed() {
@@ -76,11 +77,18 @@ export default function PublicFeed() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#d9d9d9] p-8">
       <div className="max-w-3xl mx-auto space-y-8">
-        <div className="relative">
+        <div className="relative flex justify-between items-center">
           <h1 className="text-3xl font-mono">INTELLIGENCE FEED</h1>
+          {!user && (
+            <Link href="/auth">
+              <Button className="bg-[#990000] hover:bg-[#cc0000] text-white font-mono">
+                LOGIN
+              </Button>
+            </Link>
+          )}
           <ClassificationStamp
             level="classified"
-            className="top-0 right-0 transform translate-x-1/4"
+            className="absolute top-0 right-0 transform translate-x-1/4"
           />
         </div>
 
@@ -93,10 +101,10 @@ export default function PublicFeed() {
               />
               <CardContent className="pt-6">
                 <div className="space-y-2">
-                  <div className="font-mono text-sm text-[#990000]">
+                  <div className="font-mono text-sm text-[#cc0000]">
                     AGENT {post.burnerProfile.codename} // {new Date(post.createdAt).toLocaleString()}
                   </div>
-                  <div className="font-mono text-[#d9d9d9] whitespace-pre-wrap">
+                  <div className="font-mono text-white whitespace-pre-wrap">
                     {post.transformedContent}
                   </div>
                   <div className="pt-4">
@@ -108,20 +116,21 @@ export default function PublicFeed() {
                           setSelectedPost(post.id);
                           setGuessDialogOpen(true);
                         }}
-                        className="font-mono text-[#990000] hover:text-[#cc0000]"
+                        className="font-mono text-[#cc0000] hover:text-[#ff0000] hover:bg-[#2a2a2a]"
                       >
                         IDENTIFY AGENT
                       </Button>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled
-                        className="font-mono text-[#2a2a2a] cursor-not-allowed"
-                      >
-                        <Lock className="h-4 w-4 mr-2" />
-                        LOGIN TO IDENTIFY
-                      </Button>
+                      <Link href="/auth">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="font-mono text-[#666666] hover:text-[#999999] hover:bg-[#2a2a2a] cursor-pointer"
+                        >
+                          <Lock className="h-4 w-4 mr-2" />
+                          LOGIN TO IDENTIFY
+                        </Button>
+                      </Link>
                     )}
                   </div>
                 </div>
@@ -132,7 +141,7 @@ export default function PublicFeed() {
           {!posts?.length && (
             <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
               <CardContent className="p-8 text-center">
-                <p className="font-mono text-[#990000]">NO INTELLIGENCE REPORTS AVAILABLE</p>
+                <p className="font-mono text-[#cc0000]">NO INTELLIGENCE REPORTS AVAILABLE</p>
               </CardContent>
             </Card>
           )}
@@ -140,12 +149,12 @@ export default function PublicFeed() {
       </div>
 
       <Dialog open={guessDialogOpen} onOpenChange={setGuessDialogOpen}>
-        <DialogContent className="bg-[#1a1a1a] border-[#2a2a2a] text-[#d9d9d9]">
+        <DialogContent className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
           <DialogHeader>
             <DialogTitle className="font-mono">IDENTIFY AGENT</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="font-mono text-sm text-[#990000]">
+            <p className="font-mono text-sm text-[#cc0000]">
               SELECT THE SUSPECTED REAL IDENTITY
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -153,7 +162,7 @@ export default function PublicFeed() {
                 <Button
                   key={u.id}
                   variant="outline"
-                  className="font-mono"
+                  className="font-mono text-white hover:bg-[#2a2a2a] hover:text-[#cc0000]"
                   onClick={() => {
                     if (selectedPost) {
                       makeGuessMutation.mutate({
