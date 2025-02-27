@@ -18,7 +18,7 @@ export interface IStorage {
   updateUserAccess(id: number, hasPostAccess: boolean): Promise<User>;
 
   getBurnerProfiles(userId: number): Promise<BurnerProfile[]>;
-  createBurnerProfile(profile: Omit<BurnerProfile, "id">): Promise<BurnerProfile>;
+  createBurnerProfile(profile: Omit<BurnerProfile, "id" | "postCount" | "lastPostAt" | "createdAt">): Promise<BurnerProfile>;
   deactivateBurnerProfile(id: number): Promise<void>;
 
   getPosts(filters?: { burnerIds?: number[], showAIOnly?: boolean }): Promise<Post[]>;
@@ -82,7 +82,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(burnerProfiles.userId, userId));
   }
 
-  async createBurnerProfile(profile: Omit<BurnerProfile, "id">): Promise<BurnerProfile> {
+  async createBurnerProfile(profile: Omit<BurnerProfile, "id" | "postCount" | "lastPostAt" | "createdAt">): Promise<BurnerProfile> {
     // Check for case-insensitive duplicates first
     const existingProfiles = await db
       .select()
@@ -244,6 +244,39 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.isAdmin, true));
     return Number(result.count);
+  }
+
+  async getInviteCode(code: string): Promise<InviteCode | undefined> {
+    const [inviteCode] = await db
+      .select()
+      .from(inviteCodes)
+      .where(eq(inviteCodes.code, code));
+    return inviteCode;
+  }
+
+  async getInviteCodes(): Promise<InviteCode[]> {
+    return await db
+      .select()
+      .from(inviteCodes)
+      .orderBy(desc(inviteCodes.createdAt));
+  }
+
+  async createInviteCode(code: Omit<InviteCode, "id" | "createdAt" | "usedAt">): Promise<InviteCode> {
+    const [inviteCode] = await db
+      .insert(inviteCodes)
+      .values(code)
+      .returning();
+    return inviteCode;
+  }
+
+  async useInviteCode(code: string, userId: number): Promise<void> {
+    await db
+      .update(inviteCodes)
+      .set({ 
+        usedById: userId,
+        usedAt: new Date()
+      })
+      .where(eq(inviteCodes.code, code));
   }
 }
 
