@@ -127,6 +127,14 @@ export default function PublicFeed() {
               </CardContent>
             </Card>
           ))}
+
+          {!posts?.length && (
+            <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
+              <CardContent className="p-8 text-center">
+                <p className="font-mono text-[#990000]">NO INTELLIGENCE REPORTS AVAILABLE</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
