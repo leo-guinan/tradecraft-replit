@@ -13,9 +13,9 @@ import PublicFeed from "@/pages/public-feed";
 function Router() {
   return (
     <Switch>
+      <Route path="/" component={PublicFeed} />
       <Route path="/auth" component={AuthPage} />
-      <Route path="/feed" component={PublicFeed} />
-      <ProtectedRoute path="/" component={HomePage} />
+      <ProtectedRoute path="/dashboard" component={HomePage} />
       <ProtectedRoute path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>
