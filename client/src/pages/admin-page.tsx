@@ -280,57 +280,57 @@ export default function AdminPage() {
 
       {/* User Details Dialog */}
       <Dialog open={selectedUser !== null} onOpenChange={() => setSelectedUser(null)}>
-        <DialogContent className="bg-[#1a1a1a] border-[#2a2a2a] text-[#d9d9d9]">
-          <DialogHeader>
-            <DialogTitle className="font-mono">
-              AGENT DETAILS: {selectedUserDetails?.username}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Stats section */}
-            <div className="space-y-2">
-              <p className="font-mono text-sm text-[#990000]">STATISTICS</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="font-mono text-xs">TOTAL POSTS</p>
-                  <p className="font-mono text-lg">{selectedUserDetails?.postCount}</p>
-                </div>
-                <div>
-                  <p className="font-mono text-xs">LAST ACTIVE</p>
-                  <p className="font-mono text-lg">
-                    {selectedUserDetails?.lastActive
-                      ? new Date(selectedUserDetails.lastActive).toLocaleDateString()
-                      : "NEVER"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="font-mono text-sm text-[#990000]">BURNER PROFILES</p>
-              <div className="space-y-2">
-                {selectedUserDetails?.burnerProfiles?.length ? (
-                  selectedUserDetails.burnerProfiles.map((profile) => (
-                    <div
-                      key={profile.id}
-                      className="p-3 border border-[#2a2a2a] rounded"
-                    >
-                      <p className="font-mono">{profile.codename}</p>
-                      <p className="font-mono text-xs text-[#990000]">
-                        {profile.isActive ? "ACTIVE" : "DEACTIVATED"}
+            <DialogContent className="bg-[#1a1a1a] border-[#2a2a2a] text-[#d9d9d9]">
+              <DialogHeader>
+                <DialogTitle className="font-mono">
+                  AGENT DETAILS: {selectedUserDetails?.username}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {/* Stats section */}
+                <div className="space-y-2">
+                  <p className="font-mono text-sm text-[#990000]">STATISTICS</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="font-mono text-xs">TOTAL POSTS</p>
+                      <p className="font-mono text-lg">{selectedUserDetails?.postCount || 0}</p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-xs">LAST ACTIVE</p>
+                      <p className="font-mono text-lg">
+                        {selectedUserDetails?.lastActive
+                          ? new Date(selectedUserDetails.lastActive).toLocaleDateString()
+                          : "NEVER"}
                       </p>
                     </div>
-                  ))
-                ) : (
-                  <div className="p-3 border border-[#2a2a2a] rounded">
-                    <p className="font-mono text-[#990000]">NO BURNER PROFILES</p>
                   </div>
-                )}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="font-mono text-sm text-[#990000]">BURNER PROFILES</p>
+                  <div className="space-y-2">
+                    {selectedUserDetails?.burnerProfiles?.length ? (
+                      selectedUserDetails.burnerProfiles.map((profile) => (
+                        <div
+                          key={profile.id}
+                          className="p-3 border border-[#2a2a2a] rounded"
+                        >
+                          <p className="font-mono">{profile.codename}</p>
+                          <p className="font-mono text-xs text-[#990000]">
+                            {profile.isActive ? "ACTIVE" : "DEACTIVATED"}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-3 border border-[#2a2a2a] rounded">
+                        <p className="font-mono text-[#990000]">NO BURNER PROFILES</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </DialogContent>
+          </Dialog>
     </div>
   );
 }
