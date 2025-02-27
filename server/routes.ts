@@ -306,11 +306,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: tweets.error });
       }
 
+      // Log the first tweet to see its structure
+      console.log("Sample tweet structure:", tweets[0]);
+
       res.json({
         accountId,
         tweetCount: tweets.length,
         sampleTweets: tweets.slice(0, 5).map(tweet => ({
-          text: tweet.text,
+          text: tweet.full_text || tweet.text, // Try both possible text fields
           created_at: tweet.created_at
         })),
       });
