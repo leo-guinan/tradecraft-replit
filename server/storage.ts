@@ -202,28 +202,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserDetails(id: number): Promise<UserDetails | undefined> {
+    // First check if user exists
     const [user] = await db.select().from(users).where(eq(users.id, id));
     if (!user) return undefined;
 
+    // Get all burner profiles for this user
     const profiles = await db
       .select()
       .from(burnerProfiles)
-      .where(eq(burnerProfiles.userId, id));
+      .where(and(
+        eq(burnerProfiles.userId, id),
+        eq(burnerProfiles.isActive, true)
+      ));
 
+    // Get stats with proper null handling
     const [stats] = await db
       .select({
-        postCount: sql<number>`count(${posts.id})`,
-        lastActive: sql<Date>`max(${posts.createdAt})`,
+        postCount: sql<number>`count(distinct ${posts.id})`,
+        lastActive: sql<Date | null>`max(${posts.createdAt})`,
       })
       .from(burnerProfiles)
       .leftJoin(posts, eq(posts.burnerId, burnerProfiles.id))
-      .where(eq(burnerProfiles.userId, id));
+      .where(eq(burnerProfiles.userId, id))
+      .groupBy(burnerProfiles.userId);
 
     return {
       ...user,
       burnerProfiles: profiles,
-      postCount: Number(stats.postCount) || 0,
-      lastActive: stats.lastActive,
+      postCount: Number(stats?.postCount || 0),
+      lastActive: stats?.lastActive || null,
     };
   }
 
