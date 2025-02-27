@@ -167,11 +167,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAdminStats(): Promise<AdminStats> {
     const [result] = await db.select({
-      totalUsers: sql<number>`count(distinct ${users.id})`,
-      activeUsers: sql<number>`count(distinct ${posts.burnerId})`,
-      totalPosts: sql<number>`count(${posts.id})`,
-      totalBurnerProfiles: sql<number>`count(distinct ${burnerProfiles.id})`,
-      averagePostsPerUser: sql<number>`count(${posts.id})::float / count(distinct ${users.id})`,
+      totalUsers: sql<number>`count(distinct ${users.id})::integer`,
+      activeUsers: sql<number>`count(distinct case when ${posts.id} is not null then ${users.id} end)::integer`,
+      totalPosts: sql<number>`count(distinct ${posts.id})::integer`,
+      totalBurnerProfiles: sql<number>`count(distinct ${burnerProfiles.id})::integer`,
+      averagePostsPerUser: sql<number>`COALESCE(count(distinct ${posts.id})::float / nullif(count(distinct ${users.id}), 0), 0)`,
     }).from(users)
     .leftJoin(burnerProfiles, eq(users.id, burnerProfiles.userId))
     .leftJoin(posts, eq(burnerProfiles.id, posts.burnerId));
@@ -179,13 +179,14 @@ export class DatabaseStorage implements IStorage {
     const activeUsersQuery = await db
       .select({
         username: users.username,
-        postCount: sql<number>`count(${posts.id})`,
+        postCount: sql<number>`count(distinct ${posts.id})::integer`,
       })
       .from(users)
       .leftJoin(burnerProfiles, eq(users.id, burnerProfiles.userId))
       .leftJoin(posts, eq(burnerProfiles.id, posts.burnerId))
       .groupBy(users.username)
-      .orderBy(sql`count(${posts.id}) desc`)
+      .having(sql`count(distinct ${posts.id}) > 0`)
+      .orderBy(sql`count(distinct ${posts.id}) desc`)
       .limit(5);
 
     return {
