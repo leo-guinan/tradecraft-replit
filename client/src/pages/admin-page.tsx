@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ClassificationStamp } from "@/components/classification-stamp";
-import { Copy, RefreshCw, Users, MessageSquare, UserPlus, Shield } from "lucide-react";
+import { Copy, RefreshCw, Users, MessageSquare, UserPlus, Shield, Search } from "lucide-react";
 import type { InviteCode, AdminStats, User, UserDetails } from "@shared/schema";
 import {
   Table,
@@ -23,12 +23,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
+
+interface ArchivePreview {
+  accountId: string;
+  tweetCount: number;
+  sampleTweets: any[];
+}
 
 export default function AdminPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedUser, setSelectedUser] = useState<number | null>(null);
+  const [archiveUsername, setArchiveUsername] = useState("");
+  const [showArchivePreview, setShowArchivePreview] = useState(false);
 
   // Redirect if not admin
   if (user && !user.isAdmin) {
@@ -103,6 +112,35 @@ export default function AdminPage() {
       description: "Invite code copied to clipboard.",
     });
   };
+
+  const { data: archivePreview, isLoading: previewLoading } = useQuery<ArchivePreview>({
+    queryKey: ["/api/admin/archive/preview", archiveUsername],
+    enabled: showArchivePreview && !!archiveUsername,
+  });
+
+  const importArchiveMutation = useMutation({
+    mutationFn: async (username: string) => {
+      const res = await apiRequest("POST", "/api/admin/archive/import", { username });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+      toast({
+        title: "Archive imported",
+        description: `Created burner profile and imported ${data.tweetsImported} tweets.`,
+      });
+      setShowArchivePreview(false);
+      setArchiveUsername("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Import failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#d9d9d9] p-8">
@@ -276,61 +314,122 @@ export default function AdminPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Archive Import */}
+        <Card className="bg-[#1a1a1a] border-[#2a2a2a]">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="font-mono">ARCHIVE IMPORT</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter username to import..."
+                  value={archiveUsername}
+                  onChange={(e) => setArchiveUsername(e.target.value)}
+                  className="bg-[#0a0a0a] border-[#2a2a2a] font-mono"
+                />
+                <Button
+                  onClick={() => setShowArchivePreview(true)}
+                  disabled={!archiveUsername || previewLoading}
+                  className="bg-[#990000] hover:bg-[#cc0000] font-mono"
+                >
+                  {previewLoading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+
+              {archivePreview && (
+                <div className="space-y-4 p-4 border border-[#2a2a2a] rounded">
+                  <div className="space-y-2">
+                    <p className="font-mono text-sm text-[#990000]">PREVIEW</p>
+                    <p className="font-mono">Account ID: {archivePreview.accountId}</p>
+                    <p className="font-mono">Total Tweets: {archivePreview.tweetCount}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="font-mono text-sm text-[#990000]">SAMPLE TWEETS</p>
+                    {archivePreview.sampleTweets.map((tweet, i) => (
+                      <div key={i} className="p-2 border border-[#2a2a2a] rounded">
+                        <p className="font-mono text-sm">{tweet.text}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    onClick={() => importArchiveMutation.mutate(archiveUsername)}
+                    disabled={importArchiveMutation.isPending}
+                    className="w-full bg-[#990000] hover:bg-[#cc0000] font-mono"
+                  >
+                    {importArchiveMutation.isPending ? (
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    IMPORT ARCHIVE
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
 
       {/* User Details Dialog */}
       <Dialog open={selectedUser !== null} onOpenChange={() => setSelectedUser(null)}>
-            <DialogContent className="bg-[#1a1a1a] border-[#2a2a2a] text-[#d9d9d9]">
-              <DialogHeader>
-                <DialogTitle className="font-mono">
-                  AGENT DETAILS: {selectedUserDetails?.username}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                {/* Stats section */}
-                <div className="space-y-2">
-                  <p className="font-mono text-sm text-[#990000]">STATISTICS</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="font-mono text-xs">TOTAL POSTS</p>
-                      <p className="font-mono text-lg">{selectedUserDetails?.postCount || 0}</p>
-                    </div>
-                    <div>
-                      <p className="font-mono text-xs">LAST ACTIVE</p>
-                      <p className="font-mono text-lg">
-                        {selectedUserDetails?.lastActive
-                          ? new Date(selectedUserDetails.lastActive).toLocaleDateString()
-                          : "NEVER"}
-                      </p>
-                    </div>
-                  </div>
+        <DialogContent className="bg-[#1a1a1a] border-[#2a2a2a] text-[#d9d9d9]">
+          <DialogHeader>
+            <DialogTitle className="font-mono">
+              AGENT DETAILS: {selectedUserDetails?.username}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Stats section */}
+            <div className="space-y-2">
+              <p className="font-mono text-sm text-[#990000]">STATISTICS</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="font-mono text-xs">TOTAL POSTS</p>
+                  <p className="font-mono text-lg">{selectedUserDetails?.postCount || 0}</p>
                 </div>
-
-                <div className="space-y-2">
-                  <p className="font-mono text-sm text-[#990000]">BURNER PROFILES</p>
-                  <div className="space-y-2">
-                    {selectedUserDetails?.burnerProfiles?.length ? (
-                      selectedUserDetails.burnerProfiles.map((profile) => (
-                        <div
-                          key={profile.id}
-                          className="p-3 border border-[#2a2a2a] rounded"
-                        >
-                          <p className="font-mono">{profile.codename}</p>
-                          <p className="font-mono text-xs text-[#990000]">
-                            {profile.isActive ? "ACTIVE" : "DEACTIVATED"}
-                          </p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-3 border border-[#2a2a2a] rounded">
-                        <p className="font-mono text-[#990000]">NO BURNER PROFILES</p>
-                      </div>
-                    )}
-                  </div>
+                <div>
+                  <p className="font-mono text-xs">LAST ACTIVE</p>
+                  <p className="font-mono text-lg">
+                    {selectedUserDetails?.lastActive
+                      ? new Date(selectedUserDetails.lastActive).toLocaleDateString()
+                      : "NEVER"}
+                  </p>
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
+            </div>
+
+            <div className="space-y-2">
+              <p className="font-mono text-sm text-[#990000]">BURNER PROFILES</p>
+              <div className="space-y-2">
+                {selectedUserDetails?.burnerProfiles?.length ? (
+                  selectedUserDetails.burnerProfiles.map((profile) => (
+                    <div
+                      key={profile.id}
+                      className="p-3 border border-[#2a2a2a] rounded"
+                    >
+                      <p className="font-mono">{profile.codename}</p>
+                      <p className="font-mono text-xs text-[#990000]">
+                        {profile.isActive ? "ACTIVE" : "DEACTIVATED"}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 border border-[#2a2a2a] rounded">
+                    <p className="font-mono text-[#990000]">NO BURNER PROFILES</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

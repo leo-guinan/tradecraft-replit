@@ -6,6 +6,9 @@ import { insertBurnerProfileSchema, insertPostSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { customAlphabet } from "nanoid";
 import { transformMessage } from "./openai";
+import { getAccountId, createBurnerFromArchive, importTweetsForBurner } from './archive';
+import { getTweetsPaginated } from './archive'; // Added import for getTweetsPaginated
+
 
 const generateInviteCode = customAlphabet("123456789ABCDEFGHJKLMNPQRSTUVWXYZ", 8);
 
@@ -252,6 +255,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to check codename availability" });
     }
   });
+
+  // Added archive routes
+  app.post("/api/admin/archive/import", requireAdmin, async (req, res) => {
+    try {
+      const { username } = req.body;
+      if (!username) {
+        return res.status(400).json({ message: "Username is required" });
+      }
+
+      // Create burner profile
+      const result = await createBurnerFromArchive(req.user!.id, username);
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      // Get account ID
+      const accountId = await getAccountId(username);
+      if (!accountId) {
+        return res.status(400).json({ message: "Account not found" });
+      }
+
+      // Import tweets
+      const importResult = await importTweetsForBurner(result.burnerProfile!.id, accountId);
+      if (importResult.error) {
+        return res.status(400).json({ message: importResult.error });
+      }
+
+      res.json({
+        burnerProfile: result.burnerProfile,
+        tweetsImported: importResult.count,
+      });
+    } catch (error) {
+      console.error("Failed to import archive:", error);
+      res.status(500).json({ message: "Failed to import archive" });
+    }
+  });
+
+  app.get("/api/admin/archive/preview/:username", requireAdmin, async (req, res) => {
+    try {
+      const { username } = req.params;
+      const accountId = await getAccountId(username);
+
+      if (!accountId) {
+        return res.status(404).json({ message: "Account not found" });
+      }
+
+      const tweets = await getTweetsPaginated(accountId);
+      if ('error' in tweets) {
+        return res.status(500).json({ message: tweets.error });
+      }
+
+      res.json({
+        accountId,
+        tweetCount: tweets.length,
+        sampleTweets: tweets.slice(0, 5),
+      });
+    } catch (error) {
+      console.error("Failed to preview archive:", error);
+      res.status(500).json({ message: "Failed to preview archive" });
+    }
+  });
+
 
   const httpServer = createServer(app);
   return httpServer;
