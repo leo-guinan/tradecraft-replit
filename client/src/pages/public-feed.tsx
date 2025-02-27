@@ -78,15 +78,15 @@ export default function PublicFeed() {
     <div className="min-h-screen bg-[#0a0a0a] text-[#d9d9d9] p-8">
       <div className="max-w-3xl mx-auto space-y-8">
         <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-mono">INTELLIGENCE FEED</h1>
-            {!user && (
-              <Link href="/auth">
-                <Button className="bg-[#990000] hover:bg-[#cc0000] text-white font-mono">
-                  LOGIN
-                </Button>
-              </Link>
-            )}
-          </div>
+          <h1 className="text-3xl font-mono">INTELLIGENCE FEED</h1>
+          {!user && (
+            <Link href="/auth">
+              <Button className="bg-[#990000] hover:bg-[#cc0000] text-white font-mono">
+                LOGIN
+              </Button>
+            </Link>
+          )}
+        </div>
 
         <div className="space-y-4">
           {posts?.map((post) => (
