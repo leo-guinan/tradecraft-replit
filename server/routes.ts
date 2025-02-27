@@ -309,7 +309,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         accountId,
         tweetCount: tweets.length,
-        sampleTweets: tweets.slice(0, 5),
+        sampleTweets: tweets.slice(0, 5).map(tweet => ({
+          text: tweet.text,
+          created_at: tweet.created_at
+        })),
       });
     } catch (error) {
       console.error("Failed to preview archive:", error);

@@ -374,9 +374,12 @@ export default function AdminPage() {
 
                   <div className="space-y-2">
                     <p className="font-mono text-sm text-[#990000]">SAMPLE TWEETS</p>
-                    {archivePreview.sampleTweets.map((tweet, i) => (
+                    {archivePreview.sampleTweets?.map((tweet: any, i: number) => (
                       <div key={i} className="p-2 border border-[#2a2a2a] rounded">
-                        <p className="font-mono text-sm">{tweet.text}</p>
+                        <p className="font-mono text-sm whitespace-pre-wrap">{tweet.text}</p>
+                        <p className="font-mono text-xs text-[#666666] mt-1">
+                          {new Date(tweet.created_at).toLocaleString()}
+                        </p>
                       </div>
                     ))}
                   </div>
