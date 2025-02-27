@@ -213,11 +213,11 @@ export class DatabaseStorage implements IStorage {
       .from(burnerProfiles)
       .where(eq(burnerProfiles.userId, id));
 
-    // Get stats
+    // Get stats with proper subqueries for accurate counting
     const [stats] = await db
       .select({
         postCount: sql<number>`(
-          SELECT COUNT(DISTINCT p.id)::integer
+          SELECT COUNT(p.id)::integer
           FROM ${posts} p
           JOIN ${burnerProfiles} bp ON bp.id = p.burner_id
           WHERE bp.user_id = ${id}
@@ -227,7 +227,7 @@ export class DatabaseStorage implements IStorage {
           FROM ${posts} p
           JOIN ${burnerProfiles} bp ON bp.id = p.burner_id
           WHERE bp.user_id = ${id}
-        )`,
+        )`
       })
       .from(users)
       .where(eq(users.id, id));
