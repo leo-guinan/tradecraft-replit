@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ClassificationStamp } from "@/components/classification-stamp";
+import { TutorialDialog } from "@/components/tutorial-dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Lock } from "lucide-react";
@@ -169,6 +170,8 @@ export default function PublicFeed() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <TutorialDialog />
     </div>
   );
 }
