@@ -59,12 +59,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Post routes
-  app.get("/api/posts", requireAuth, async (req, res) => {
-    const showAIOnly = req.query.showAIOnly === "true";
-    const posts = await storage.getPosts({ showAIOnly });
-    res.json(posts);
-  });
-
   app.post("/api/posts", requireAuth, async (req, res) => {
     try {
       const postData = insertPostSchema.parse(req.body);
@@ -105,7 +99,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public feed routes
   app.get("/api/posts", async (req, res) => {
     try {
-      const posts = await storage.getPosts();
+      const showAIOnly = req.query.showAIOnly === "true";
+      const posts = await storage.getPosts({ showAIOnly });
       res.json(posts);
     } catch (error) {
       console.error("Failed to fetch posts:", error);
