@@ -287,6 +287,7 @@ export default function AdminPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Stats section */}
             <div className="space-y-2">
               <p className="font-mono text-sm text-[#990000]">STATISTICS</p>
               <div className="grid grid-cols-2 gap-4">
