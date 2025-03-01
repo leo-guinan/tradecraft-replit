@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { storage } from './storage';
 import type { BurnerProfile } from '@shared/schema';
+import { customAlphabet } from 'nanoid';
 
 const supabaseUrl = 'https://fabxmporizzqflnftavs.supabase.co';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Generate a short random ID for codename suffix
+const generateRandomSuffix = customAlphabet('123456789ABCDEFGHJKLMNPQRSTUVWXYZ', 4);
 
 export async function getAccountId(username: string): Promise<string | null> {
   try {
@@ -104,10 +108,15 @@ export async function createBurnerFromArchive(userId: number, username: string):
       return { error: "Profile not found" };
     }
 
+    // Generate a unique codename with a random suffix
+    const suffix = generateRandomSuffix();
+    const codename = `ARCHIVE_${username.toUpperCase()}_${suffix}`;
+    console.log(`Attempting to create burner profile with codename: ${codename}`);
+
     // Create burner profile
     const burnerProfile = await storage.createBurnerProfile({
       userId,
-      codename: `ARCHIVE_${username.toUpperCase()}`,
+      codename,
       personality: `Archive of ${username}'s posts`,
       avatar: profile.profile_image_url || "default_avatar.png",
       background: "Imported from Community Archive",
