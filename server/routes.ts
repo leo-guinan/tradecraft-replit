@@ -386,14 +386,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/archive/tweets/:username", requireAdmin, async (req, res) => {
     try {
       const { username } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const offset = (page - 1) * limit;
+
       const accountId = await getAccountId(username);
 
       if (!accountId) {
         return res.status(404).json({ message: "Account not found" });
       }
 
-      // Get all tweets for this account
-      const tweets = await getTweetsPaginated(accountId);
+      // Get tweets with pagination
+      const tweets = await getTweetsPaginated(accountId, limit, offset);
       if ('error' in tweets) {
         return res.status(500).json({ message: tweets.error });
       }
@@ -406,6 +410,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
         totalTweets: tweets.length,
         username,
+        page,
+        totalPages: Math.ceil(tweets.length / limit)
       });
     } catch (error) {
       console.error("Failed to fetch archive tweets:", error);

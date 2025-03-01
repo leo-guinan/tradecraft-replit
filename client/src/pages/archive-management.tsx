@@ -23,6 +23,8 @@ interface ArchiveData {
   lastSync?: string;
 }
 
+const TWEETS_PER_PAGE = 20;
+
 export default function ArchiveManagement() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -30,6 +32,7 @@ export default function ArchiveManagement() {
   const [username, setUsername] = useState("");
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedTweets, setSelectedTweets] = useState<number[]>([]);
+  const [page, setPage] = useState(1);
 
   // Redirect if not admin
   if (user && !user.isAdmin) {
@@ -37,8 +40,9 @@ export default function ArchiveManagement() {
   }
 
   const { data: archiveData, isLoading: archiveLoading } = useQuery<ArchiveData>({
-    queryKey: ["/api/admin/archive/tweets", username],
+    queryKey: ["/api/admin/archive/tweets", username, page],
     enabled: !!username,
+    keepPreviousData: true,
     queryFn: () => apiRequest("GET", `/api/admin/archive/tweets/${username.toLowerCase()}`).then(res => res.json()),
   });
 
@@ -74,6 +78,15 @@ export default function ArchiveManagement() {
       setShowImportDialog(false);
     },
   });
+
+  const displayTweets = archiveData?.tweets.slice(
+    (page - 1) * TWEETS_PER_PAGE,
+    page * TWEETS_PER_PAGE
+  ) || [];
+
+  const totalPages = archiveData
+    ? Math.ceil(archiveData.tweets.length / TWEETS_PER_PAGE)
+    : 0;
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#d9d9d9] p-8">
@@ -132,7 +145,7 @@ export default function ArchiveManagement() {
                 </div>
 
                 <div className="space-y-2">
-                  {archiveData.tweets.map((tweet) => (
+                  {displayTweets.map((tweet) => (
                     <div
                       key={tweet.id}
                       className={`p-4 border rounded cursor-pointer ${
@@ -155,6 +168,33 @@ export default function ArchiveManagement() {
                     </div>
                   ))}
                 </div>
+
+                {/* Pagination controls */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center gap-2 mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="font-mono"
+                    >
+                      Previous
+                    </Button>
+                    <span className="px-4 py-2 font-mono">
+                      Page {page} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className="font-mono"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
