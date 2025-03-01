@@ -131,10 +131,16 @@ export async function importTweetsForBurner(burnerId: number, accountId: string)
 
     let importedCount = 0;
     for (const tweet of tweets) {
+      const tweetText = tweet.full_text || tweet.text;
+      if (!tweetText) {
+        console.log("Skipping tweet with no content:", tweet.id);
+        continue;
+      }
+
       await storage.createPost({
         burnerId,
-        originalContent: tweet.text,
-        transformedContent: tweet.text, // No transformation for archive posts
+        originalContent: tweetText,
+        transformedContent: tweetText, // No transformation for archive posts
       });
       importedCount++;
     }
